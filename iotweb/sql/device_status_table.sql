@@ -1,0 +1,6 @@
+CREATE TABLE device_status (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    device_id INT NOT NULL,
+    status VARCHAR(10) NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);

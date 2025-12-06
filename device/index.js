@@ -24,6 +24,8 @@ client.on('connect', () => {
 
 // 设备状态变量，默认为关闭状态
 let devStatus = 'off';
+// 数据发送控制变量，默认开启数据发送
+let dataSendingEnabled = true;
 
 // 当MQTT客户端接收到消息时执行的回调函数
 // message事件：当客户端从已订阅的主题接收到消息时触发

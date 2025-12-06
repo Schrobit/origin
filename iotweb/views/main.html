@@ -1,27 +1,162 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>主页</title>
+    <title>物联网设备监控平台</title>
+    <!-- 引入Bootstrap样式 -->
+    <link href="https://static.tx.tjh666.cn/lib/bootstrap.min.css" rel="stylesheet">
+    <!-- 引入ECharts图表库 -->
+    <script src="https://static.tx.tjh666.cn/lib/echarts.min.js"></script>
 </head>
 <body>
-    <h3>这是主页！</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>设备ID</th>
-                <th>时间</th>
-                <th>温度</th>
-                <th>湿度</th>
-            </tr>
-        </thead>
-        <tbody id="tel">
-
-        </tbody>
-    </table>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12 text-center py-4 bg-primary text-white">
+                <h1>物联网设备监控平台</h1>
+                <p class="mb-0">实时监控设备状态与环境数据</p>
+            </div>
+        </div>
+        <!-- 控制面板 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h3>设备控制面板</h3>
+                    </div>
+                    <div class="card-body text-center">
+                        <button id="onButton" class="btn btn-lg btn-success mr-3">
+                            <i class="fas fa-power-off"></i> 开启设备
+                        </button>
+                        <button id="offButton" class="btn btn-lg btn-danger">
+                            <i class="fas fa-power-off"></i> 关闭设备
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 图表展示区 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h3>环境数据图表</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="chartContainer" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 数据表格 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning text-white">
+                        <h3>实时遥测数据</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-bordered table-hover">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>设备ID</th>
+                                        <th>时间</th>
+                                        <th>温度 (°C)</th>
+                                        <th>湿度 (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tel">
+        
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <!-- 引入Bootstrap JS和依赖 -->
+    <script src="https://static.tx.tjh666.cn/lib/bootstrap.min.js"></script>
+    
     <script>
+        // 全局变量用于存储图表实例
+        let chartInstance = null;
+        
+        // 初始化图表
+        function initChart() {
+            const chartDom = document.getElementById('chartContainer');
+            chartInstance = echarts.init(chartDom);
+            
+            const option = {
+                title: {
+                    text: '设备环境数据趋势'
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['温度', '湿度']
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [
+                    {
+                        name: '温度',
+                        type: 'line',
+                        data: [],
+                        smooth: true
+                    },
+                    {
+                        name: '湿度',
+                        type: 'line',
+                        data: [],
+                        smooth: true
+                    }
+                ]
+            };
+            
+            chartInstance.setOption(option);
+        }
+        
+        // 更新图表数据
+        function updateChart(data) {
+            if (!chartInstance) return;
+            
+            // 提取时间和数值数据
+            const times = data.map(item => {
+                // 处理ISO格式的时间字符串，提取小时:分钟:秒
+                const timePart = item.time.split('T')[1]; // 获取T后面的部分
+                return timePart ? timePart.split('.')[0] : ''; // 去掉毫秒部分
+            });
+            const temps = data.map(item => JSON.parse(item.value).temp);
+            const humds = data.map(item => JSON.parse(item.value).humd);
+            
+            // 更新图表
+            chartInstance.setOption({
+                xAxis: {
+                    data: times
+                },
+                series: [
+                    {
+                        name: '温度',
+                        data: temps
+                    },
+                    {
+                        name: '湿度',
+                        data: humds
+                    }
+                ]
+            });
+        }
+
+        // 刷新遥测数据
         function refresh(){
             var url = '/tel?device_id=10';
             var xhr = new XMLHttpRequest();
@@ -31,25 +166,83 @@
                     const data = JSON.parse(xhr.responseText);
                     let tbody = document.getElementById('tel');
                     let tbodyText = '';
-                    for (let i = 0; i < data.length; i++) {
+                    
+                    // 逆序显示数据，最新的在前面
+                    for (let i = data.length - 1; i >= 0; i--) {
                         const val = JSON.parse(data[i].value);
                         rowText = `<tr>
                             <td>${data[i].id}</td>
                             <td>${data[i].device_id}</td>
                             <td>${data[i].time}</td>
-                            <td>${val.temp}</td>
-                            <td>${val.humd}</td>
+                            <td>${val.temp}°C</td>
+                            <td>${val.humd}%</td>
                             </tr>
                             `
                         tbodyText += rowText;
                     }
                     tbody.innerHTML = tbodyText;
+                    
+                    // 更新图表
+                    updateChart(data);
                 }
             }
             xhr.send();
         }
 
+        // 发送设备状态
+        function sendStatus(status) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/status', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        console.log('状态发送成功:', response.message);
+                        // 显示成功提示
+                        alert('设备状态已更新: ' + status);
+                    } else {
+                        console.error('状态发送失败:', response.message);
+                        // 显示错误提示
+                        alert('状态发送失败: ' + response.message);
+                    }
+                } else {
+                    console.error('请求失败，状态码:', xhr.status);
+                    alert('请求失败，状态码: ' + xhr.status);
+                }
+            };
+            xhr.onerror = function () {
+                console.error('请求发生错误');
+                alert('请求发生错误');
+            };
+            xhr.send(JSON.stringify({ status: status }));
+        }
+
+        // 绑定按钮事件
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化图表
+            initChart();
+            
+            document.getElementById('onButton').addEventListener('click', function() {
+                sendStatus('on');
+            });
+            
+            document.getElementById('offButton').addEventListener('click', function() {
+                sendStatus('off');
+            });
+            
+            // 首次加载数据
+            refresh();
+        });
+
         setInterval(refresh, 5000);
+        
+        // 窗口大小改变时重新调整图表大小
+        window.addEventListener('resize', function() {
+            if (chartInstance) {
+                chartInstance.resize();
+            }
+        });
     </script>
 </body>
 </html>
