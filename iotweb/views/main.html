@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主页</title>
+</head>
+<body>
+    <h3>这是主页！</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>设备ID</th>
+                <th>时间</th>
+                <th>温度</th>
+                <th>湿度</th>
+            </tr>
+        </thead>
+        <tbody id="tel">
+
+        </tbody>
+    </table>
+    <script>
+        function refresh(){
+            var url = '/tel?device_id=10';
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    let tbody = document.getElementById('tel');
+                    let tbodyText = '';
+                    for (let i = 0; i < data.length; i++) {
+                        const val = JSON.parse(data[i].value);
+                        rowText = `<tr>
+                            <td>${data[i].id}</td>
+                            <td>${data[i].device_id}</td>
+                            <td>${data[i].time}</td>
+                            <td>${val.temp}</td>
+                            <td>${val.humd}</td>
+                            </tr>
+                            `
+                        tbodyText += rowText;
+                    }
+                    tbody.innerHTML = tbodyText;
+                }
+            }
+            xhr.send();
+        }
+
+        setInterval(refresh, 5000);
+    </script>
+</body>
+</html>
