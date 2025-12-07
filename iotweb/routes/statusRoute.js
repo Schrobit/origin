@@ -2,27 +2,37 @@ const express = require('express');
 const router = express.Router();
 const { send } = require('../services/mqService');
 
-/**
- * POST /status 路由
- * 接收设备状态(on/off)并发送到MQ
- */
 router.post('/status', async (req, res) => {
   try {
-    // 从请求体中获取状态
-    const { status } = req.body;
+    const { status, report } = req.body;
     
-    // 验证状态参数
-    if (!status || (status !== 'on' && status !== 'off')) {
+    if (!status && !report) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '必须提供 status 或 report 参数' 
+      });
+    }
+    
+    if (status && status !== 'on' && status !== 'off') {
       return res.status(400).json({ 
         success: false, 
         message: '状态参数无效，请提供 "on" 或 "off"' 
       });
     }
     
-    // 调用MQ服务发送状态
-    const result = await send(status);
+    if (report && report !== 'start' && report !== 'stop') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '报告参数无效，请提供 "start" 或 "stop"' 
+      });
+    }
     
-    // 返回结果
+    const messageObj = {};
+    if (status) messageObj.status = status;
+    if (report) messageObj.report = report;
+    
+    const result = await send(messageObj);
+    
     res.json({
       success: result.success,
       message: result.message

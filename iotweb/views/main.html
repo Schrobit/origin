@@ -31,6 +31,13 @@
                         <button id="offButton" class="btn btn-lg btn-danger">
                             <i class="fas fa-power-off"></i> 关闭设备
                         </button>
+                        <!-- 数据上报控制按钮 -->
+                        <button id="startReportButton" class="btn btn-lg btn-info ml-3">
+                            <i class="fas fa-play"></i> 启动数据上报
+                        </button>
+                        <button id="stopReportButton" class="btn btn-lg btn-warning ml-3">
+                            <i class="fas fa-stop"></i> 停止数据上报
+                        </button>
                     </div>
                 </div>
             </div>
@@ -218,6 +225,35 @@
             xhr.send(JSON.stringify({ status: status }));
         }
 
+        // 发送数据上报控制指令
+        function sendReportControl(report) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/status', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        console.log('指令发送成功:', response.message);
+                        // 显示成功提示
+                        alert('数据上报控制指令已发送: ' + report);
+                    } else {
+                        console.error('指令发送失败:', response.message);
+                        // 显示错误提示
+                        alert('指令发送失败: ' + response.message);
+                    }
+                } else {
+                    console.error('请求失败，状态码:', xhr.status);
+                    alert('请求失败，状态码: ' + xhr.status);
+                }
+            };
+            xhr.onerror = function () {
+                console.error('请求发生错误');
+                alert('请求发生错误');
+            };
+            xhr.send(JSON.stringify({ report: report }));
+        }
+
         // 绑定按钮事件
         document.addEventListener('DOMContentLoaded', function() {
             // 初始化图表
@@ -229,6 +265,15 @@
             
             document.getElementById('offButton').addEventListener('click', function() {
                 sendStatus('off');
+            });
+            
+            // 数据上报控制按钮事件
+            document.getElementById('startReportButton').addEventListener('click', function() {
+                sendReportControl('start');
+            });
+            
+            document.getElementById('stopReportButton').addEventListener('click', function() {
+                sendReportControl('stop');
             });
             
             // 首次加载数据

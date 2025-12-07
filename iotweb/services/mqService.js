@@ -2,9 +2,7 @@ const amqp = require('amqplib');
 const mqDao = require('../dao/mqDao');
 const { saveDeviceStatus } = require('./deviceStatusService');
 
-/**
- * 接收MQ消息并存储到数据库
- */
+
 async function receive() {
   try {
     const connection = await amqp.connect('amqp://localhost');
@@ -24,7 +22,7 @@ async function receive() {
         const obj = JSON.parse(msg.content.toString());
         
         try {
-          // 使用DAO层插入数据
+          
           const result = await mqDao.insertDeviceData(obj);
           console.log(result.message);
         } catch (error) {
@@ -37,12 +35,13 @@ async function receive() {
   }
 }
 
-/**
- * 发送设备状态到MQ
- * @param {string} status - 设备状态 ('on' 或 'off')
- */
-async function send(status) {
+async function send(message) {
   try {
+    // 如果传入的是字符串（为了兼容旧代码），则转换为对象
+    if (typeof message === 'string') {
+      message = { status: message };
+    }
+    
     // 创建连接和通道
     const connection = await amqp.connect('amqp://localhost');
     const channel = await connection.createChannel();
@@ -54,16 +53,18 @@ async function send(status) {
     await channel.assertQueue(queue, { durable: false });
     
     // 发送消息
-    const message = JSON.stringify({ status: status, timestamp: new Date().toISOString() });
-    channel.sendToQueue(queue, Buffer.from(message));
+    const messageStr = JSON.stringify(message);
+    channel.sendToQueue(queue, Buffer.from(messageStr));
     
-    console.log(" [x] Sent '%s'", message);
+    console.log(" [x] Sent '%s'", messageStr);
     
-    // 保存状态到数据库 (设备ID为30的灯)
-    try {
-      await saveDeviceStatus(30, status);
-    } catch (dbError) {
-      console.error('数据库保存状态错误:', dbError.message);
+    // 如果消息包含status字段，则保存状态到数据库 (设备ID为30的灯)
+    if (message.status) {
+      try {
+        await saveDeviceStatus(30, message.status);
+      } catch (dbError) {
+        console.error('数据库保存状态错误:', dbError.message);
+      }
     }
     
     // 关闭连接
@@ -71,10 +72,10 @@ async function send(status) {
       connection.close();
     }, 500);
     
-    return { success: true, message: '状态发送成功' };
+    return { success: true, message: '指令发送成功' };
   } catch (error) {
     console.error('MQ发送错误:', error);
-    return { success: false, message: '状态发送失败: ' + error.message };
+    return { success: false, message: '指令发送失败: ' + error.message };
   }
 }
 

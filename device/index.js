@@ -24,8 +24,8 @@ client.on('connect', () => {
 
 // 设备状态变量，默认为关闭状态
 let devStatus = 'off';
-// 数据发送控制变量，默认开启数据发送
-let dataSendingEnabled = true;
+// 数据上报控制变量，默认为开启状态
+let reportEnabled = true;
 
 // 当MQTT客户端接收到消息时执行的回调函数
 // message事件：当客户端从已订阅的主题接收到消息时触发
@@ -39,13 +39,31 @@ client.on('message', (t, m) => {
     // 判断消息是否来自'v1/attr'主题
     if( t === 'v1/attr' ){
         // 更新设备状态为消息中指定的状态
-        devStatus = obj.status;
+        if (obj.status) {
+            devStatus = obj.status;
+        }
+        // 处理数据上报控制指令
+        if (obj.report) {
+            if (obj.report === 'start') {
+                reportEnabled = true;
+                console.log('数据上报已启动');
+            } else if (obj.report === 'stop') {
+                reportEnabled = false;
+                console.log('数据上报已停止');
+            }
+        }
     }
 });
 
 // 发送传感器数据的函数
 // publish方法：向指定主题发布消息
 function send(){
+    // 只有在数据上报启用时才发送数据
+    if (!reportEnabled) {
+        console.log('数据上报已禁用，跳过本次发送');
+        return;
+    }
+    
     // 设备ID标识
     const device_id = 10;
     // 获取当前时间戳
@@ -60,6 +78,31 @@ function send(){
     console.log('publish: ' + msg);
     // 向'v1/tel'主题发布消息
     // publish方法：向指定主题发送消息，订阅该主题的所有客户端都能收到这条消息
+    client.publish('v1/tel', msg);
+}
+
+// 上报/report接口接收到的数据到MQTT
+function reportData(data) {
+    // 只有在数据上报启用时才发送数据
+    if (!reportEnabled) {
+        console.log('数据上报已禁用，跳过本次发送');
+        return;
+    }
+    
+    // 提取有用信息
+    const device_id = data.device_id;
+    const time = formatDateTime();
+    const value = {
+        has_light: data.has_light,
+        source: data.source,
+        threshold_percent: data.threshold_percent,
+        visible_light_percent: data.visible_light_percent
+    };
+    
+    // 将数据封装成JSON格式，保持与之前一致的格式
+    const msg = JSON.stringify({ device_id, time, value });
+    console.log('Reporting data to v1/tel: ' + msg);
+    // 向'v1/tel'主题发布消息
     client.publish('v1/tel', msg);
 }
 
@@ -86,9 +129,23 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // 定义GET请求路由 /status
 // 当访问http://localhost:8000/status时会返回当前设备状态
 app.get('/status', (req, res) => {
-    console.log('Received status request');
+    // console.log('Received status request');
     // 返回设备当前状态
     res.send(devStatus);
+    res.end();
+});
+
+// 添加POST请求路由 /report
+// 当接收到POST请求时，将请求体内容打印到控制台并上报到MQTT
+app.post('/report', (req, res) => {
+    console.log('Received report request:');
+    console.log('Request body:', req.body);
+    
+    // 上报数据到MQTT
+    reportData(req.body);
+    
+    // 返回成功响应
+    // res.send({ success: true, message: 'Report received and forwarded to MQTT' });
     res.end();
 });
 
