@@ -13,8 +13,7 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-12 text-center py-4 bg-primary text-white">
-                <h1>物联网设备监控平台</h1>
-                <p class="mb-0">实时监控设备状态与环境数据</p>
+                <h2>物联网平台</h2>
             </div>
         </div>
         <!-- 控制面板 -->
@@ -48,14 +47,29 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header bg-info text-white">
-                        <h3>环境数据图表</h3>
+                        <h3>device10 数据图表</h3>
                     </div>
                     <div class="card-body">
-                        <div id="chartContainer" style="height: 400px;"></div>
+                        <div id="chartContainer" style="height: 300px;"></div>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <!-- 光线传感器图表展示区 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h3>思科环境光线传感器图表</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="lightChartContainer" style="height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- 数据表格 -->
         <div class="row mt-4">
             <div class="col-12">
@@ -90,6 +104,7 @@
     <script>
         // 全局变量用于存储图表实例
         let chartInstance = null;
+        let lightChartInstance = null;
         
         // 初始化图表
         function initChart() {
@@ -132,6 +147,41 @@
             chartInstance.setOption(option);
         }
         
+        // 初始化光线传感器图表
+        function initLightChart() {
+            const chartDom = document.getElementById('lightChartContainer');
+            lightChartInstance = echarts.init(chartDom);
+            
+            const option = {
+                title: {
+                    text: '思科环境光线传感器数据趋势'
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['可见光百分比']
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [
+                    {
+                        name: '可见光百分比',
+                        type: 'line',
+                        data: [],
+                        smooth: true
+                    }
+                ]
+            };
+            
+            lightChartInstance.setOption(option);
+        }
+        
         // 更新图表数据
         function updateChart(data) {
             if (!chartInstance) return;
@@ -158,6 +208,39 @@
                     {
                         name: '湿度',
                         data: humds
+                    }
+                ]
+            });
+        }
+        
+        // 更新光线传感器图表数据
+        function updateLightChart(data) {
+            if (!lightChartInstance) return;
+            
+            // 筛选出光线传感器数据（假设设备ID为30）
+            const lightData = data.filter(item => item.device_id == 30);
+            
+            // 提取时间和数值数据
+            const times = lightData.map(item => {
+                // 处理ISO格式的时间字符串，提取小时:分钟:秒
+                const timePart = item.time.split('T')[1]; // 获取T后面的部分
+                return timePart ? timePart.split('.')[0] : ''; // 去掉毫秒部分
+            });
+            
+            const visibleLightPercents = lightData.map(item => {
+                const value = JSON.parse(item.value);
+                return value.visible_light_percent ? value.visible_light_percent : 0;
+            });
+            
+            // 更新图表
+            lightChartInstance.setOption({
+                xAxis: {
+                    data: times
+                },
+                series: [
+                    {
+                        name: '可见光百分比',
+                        data: visibleLightPercents
                     }
                 ]
             });
@@ -191,6 +274,50 @@
                     
                     // 更新图表
                     updateChart(data);
+                }
+            }
+            xhr.send();
+        }
+        
+        // 刷新所有遥测数据（包括光线传感器数据）
+        function refreshAll(){
+            var url = '/tel'; // 不指定设备ID，获取所有设备数据
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    let tbody = document.getElementById('tel');
+                    let tbodyText = '';
+                    
+                    // 逆序显示数据，最新的在前面
+                    for (let i = data.length - 1; i >= 0; i--) {
+                        const val = JSON.parse(data[i].value);
+                        // 根据不同的设备类型显示不同的数据
+                        let valueDisplay = '';
+                        if (data[i].device_id == 10) {
+                            // 温湿度传感器
+                            valueDisplay = `${val.temp}°C / ${val.humd}%`;
+                        } else if (data[i].device_id == 30) {
+                            // 光线传感器
+                            valueDisplay = `${val.visible_light_percent.toFixed(2)}% (${val.has_light ? '有光' : '无光'})`;
+                        }
+                        
+                        rowText = `<tr>
+                            <td>${data[i].id}</td>
+                            <td>${data[i].device_id}</td>
+                            <td>${data[i].time}</td>
+                            <td colspan="2">${valueDisplay}</td>
+                            </tr>
+                            `
+                        tbodyText += rowText;
+                    }
+                    tbody.innerHTML = tbodyText;
+                    
+                    // 更新图表
+                    updateChart(data.filter(item => item.device_id == 10));
+                    // 更新光线传感器图表
+                    updateLightChart(data);
                 }
             }
             xhr.send();
@@ -258,6 +385,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             // 初始化图表
             initChart();
+            // 初始化光线传感器图表
+            initLightChart();
             
             document.getElementById('onButton').addEventListener('click', function() {
                 sendStatus('on');
@@ -277,15 +406,18 @@
             });
             
             // 首次加载数据
-            refresh();
+            refreshAll();
         });
 
-        setInterval(refresh, 5000);
+        setInterval(refreshAll, 5000);
         
         // 窗口大小改变时重新调整图表大小
         window.addEventListener('resize', function() {
             if (chartInstance) {
                 chartInstance.resize();
+            }
+            if (lightChartInstance) {
+                lightChartInstance.resize();
             }
         });
     </script>

@@ -27,11 +27,7 @@ let devStatus = 'off';
 // 数据上报控制变量，默认为开启状态
 let reportEnabled = true;
 
-// 当MQTT客户端接收到消息时执行的回调函数
-// message事件：当客户端从已订阅的主题接收到消息时触发
-// 参数说明：
-// - t: 接收到消息的主题(topic)
-// - m: 接收到的消息内容(message)
+
 client.on('message', (t, m) => {
     console.log(`Received on ${t}: ${m.toString()}`);
     // 将消息内容解析为JSON对象
@@ -81,15 +77,12 @@ function send(){
     client.publish('v1/tel', msg);
 }
 
-// 上报/report接口接收到的数据到MQTT
 function reportData(data) {
-    // 只有在数据上报启用时才发送数据
     if (!reportEnabled) {
         console.log('数据上报已禁用，跳过本次发送');
         return;
     }
     
-    // 提取有用信息
     const device_id = data.device_id;
     const time = formatDateTime();
     const value = {
@@ -99,10 +92,8 @@ function reportData(data) {
         visible_light_percent: data.visible_light_percent
     };
     
-    // 将数据封装成JSON格式，保持与之前一致的格式
     const msg = JSON.stringify({ device_id, time, value });
     console.log('Reporting data to v1/tel: ' + msg);
-    // 向'v1/tel'主题发布消息
     client.publish('v1/tel', msg);
 }
 
@@ -126,8 +117,7 @@ app.use(bodyParser.json());
 // 使用body-parser中间件解析URL编码的请求体
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// 定义GET请求路由 /status
-// 当访问http://localhost:8000/status时会返回当前设备状态
+
 app.get('/status', (req, res) => {
     // console.log('Received status request');
     // 返回设备当前状态
@@ -135,8 +125,7 @@ app.get('/status', (req, res) => {
     res.end();
 });
 
-// 添加POST请求路由 /report
-// 当接收到POST请求时，将请求体内容打印到控制台并上报到MQTT
+// 接收思科光线传感器数据上报请求
 app.post('/report', (req, res) => {
     console.log('Received report request:');
     console.log('Request body:', req.body);
